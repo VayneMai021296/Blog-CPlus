@@ -7,9 +7,9 @@
 
 # ✍️ Trong bài viết này chúng ta sẽ đề cập đến một lỗi nghiêm trọng với kỹ thuật shallow copy khi tài nguyên của một class được cấp phát động (dynamic allocation)
 
-### 👉  Mặc định khi không triển khai lại phương thức copy constructor hoặc assignment operator thì sẽ là shallow copy. Để hiểu rõ chúng ta hãy thực hiện đoạn code sau.
+### 👉  Mặc định khi không triển khai lại phương thức copy constructor hoặc assignment operator thì sẽ là shallow copy. Để hiểu rõ shallow copy chúng ta thực hiện đoạn code sau.
 
-* Bước 1: Tạo class Camera, class shallowcopy. Trong class shallowcopy có tài nguyên động là đối tượng của class Camera
+* Bước 1: Tạo class Camera, class shallowcopy. Trong class shallowcopy có tài nguyên động là đối tượng của class `Camera`
 ```cpp 
 // shallowcopy.h
 #pragma once
@@ -65,7 +65,7 @@ class shallowcopy{
 // main.cpp
 int main(){
     {
-        Camera * cam = new cam(1,2;)
+        Camera * cam = new cam(1,2);
         shallowcopy s1(cam);
         shallowcopy s2 = s1; // Gọi Copy Constructor mặc định
 
@@ -87,14 +87,18 @@ Giá trị của W trong s1 là: 99
 Giá trị của W trong s2 khi thực hiện s1.setW(99): 99
 [shallowcopy] Calling Destructor
 ```
+* Có thể thấy được cả tài nguyên động `cam` của đối tượng s1 và đối tượng s2 cùng tham chiếu tới một vùng nhớ đã được cấp phát từ dòng code 
+```cpp 
+Camera * cam = new cam(1,2);
+```
+
 ### 👉 Điều gì đang thực sự xảy ra ở ví dụ trên.   
-- Ở đây chúng ta thấy khi thực hiện hàm `setW()` của s1 và s2 giá trị W của tài nguyên động cam của s1 và s2 đều có giá trị giống nhau
-- Bản chất là tài nguyên động cam của s1 và tài nguyên động cam của s2 cùng tham chiếu tới một vùng nhớ.
-- Khi đối tượng s1, s2 `out of scope` thì vùng nhớ của chúng sẽ được tự động thu hồi vì chúng được cấp phát tĩnh.
-- Nhưng đối với đối tượng cam được cấp phát tĩnh chúng ta chỉ thấy hàm `Constructor` được gọi, sau khi kết thúc chương trình hàm `Destructor` vẫn không được gọi -> điều này gây ra memmory leak
+- Ở đây chúng ta thấy khi thực hiện hàm `setW()` của s1 và s2 giá trị W của tài nguyên động cam thuộc đối tượng s1 và s2 đều có giá trị giống nhau
+- Bản chất tài nguyên động `cam` của s1 và tài nguyên động cam của s2 cùng tham chiếu tới một vùng nhớ.
+- Khi đối tượng s1, s2 `out of scope` tức là bị hủy (với cấp phát tĩnh) thì vùng nhớ của chúng sẽ được tự động thu hồi. Nhưng đối với đối tượng cam là tài nguyên động chúng ta chỉ thấy hàm `Constructor` được gọi, sau khi kết thúc chương trình hàm `Destructor` của tài nguyên động `cam`vẫn không được gọi `->` điều này gây ra memmory leak
 - Vậy mấu chốt vấn đề chỉ cần thu hồi bộ nhớ đã cấp phát cho tài nguyên động trong hàm huỷ của class quản lý chúng
 
-### 👉 Thu hồi bộ nhớ (deallocate dynamic resource) đã cấp phát cho tài nguyên động
+### 👉 Thu hồi bộ nhớ `(deallocate dynamic resource)` đã cấp phát cho tài nguyên động
 ```cpp
 ...
 // shallowcopy.h
@@ -124,10 +128,10 @@ class shallowcopy{
 };
 
 ```
-- Mặc dù chúng ta đã thu hồi bộ nhớ đã cấp phát cho tài nguyên động `cam`. Nhưng rõ ràng cả 2 biến `cam` trong 2 đối tượng của class shallowcopy cùng tham chiếu tới một vùng nhớ dẫn tới hiện tượng `double free` hoặc `unbehavior` Điều này gây ra việc Crash chương trình, mặc dù chúng ra đã delete và đặt là `nullptr`
-- Vậy mấu chốt vấn đề là làm sao để biết tài nguyên động đã được free, nếu đã được free rồi thì chúng ra sẽ không delete nó nữa.
+- Mặc dù chúng ta đã thu hồi bộ nhớ cấp phát cho tài nguyên động `cam`. Nhưng rõ ràng cả 2 biến `cam` trong 2 đối tượng của class shallowcopy cùng tham chiếu tới một vùng nhớ dẫn tới hiện tượng `double free` hoặc `unbehavior` Điều này gây ra việc Crash chương trình, mặc dù chúng ra đã delete và đặt là `nullptr`
+- Mấu chốt vấn đề là làm sao để biết tài nguyên động đã được deallocation, nếu đã được deallocation rồi thì chúng ra sẽ không thực hiện deallocation nữa.
 
-### 👉 std::vector<T> để quan sát số lượng tài nguyên động, tránh trường hợp double free hoặc unbehavior
+### 👉 `std::vector<>` để quan sát số lượng tài nguyên động, tránh trường hợp double free hoặc unbehavior
 
 ```cpp
 // shallowcopy.h
@@ -166,3 +170,15 @@ class shallowcopy{
     Camera *cam = nullptr;
 };
 ```
+### 👉 Trong ví dụ này nếu sử erase() trước khi delete thì sẽ gây ra lỗi, vì sao ?
+* Bản chất của `std::vector<T>` lưu phần tử liên tiếp trong bộ nhớ vì vậy khi xóa một phần tử ở vị trí bất kỳ, các phần từ phía sau sẽ phải dịch sang bên trái (shift left) để lấp vào chỗ trống. Việc dữ liệu bị di dời hoặc ghi đè như vậy, các iterator trỏ vào vùng từ phần tử bị xóa trở đi không còn đảm bảo trỏ tới đúng phần tử cũ nữa (iterator invalid)
+```cpp
+vector.erase(it);
+delete *it; // Crash chương trình
+```
+* Cách viết đúng
+```cpp
+delete *it;
+vector.erase(it);
+```
+
